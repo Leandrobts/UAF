@@ -1,15 +1,13 @@
 // js/utils.bundle.mjs
 
 // --- Início de dom_elements.mjs (simplificado) ---
-// Cache foi removido para simplicidade, pois 'document' está sempre disponível.
-export function getElementById(id) {
+export function getElement(id) {
     return document.getElementById(id);
 }
 
 // --- Início de logger.mjs ---
-export function logToDiv(divId, message, type = 'info', funcName = '') {
-    // Usa a função getElementById definida acima
-    const outputDiv = getElementById(divId); 
+export function log(divId, message, type = 'info', funcName = '') {
+    const outputDiv = getElement(divId); // Usa getElement
     if (!outputDiv) {
         console.error(`Log target div "${divId}" not found. Message: ${message}`);
         return;
@@ -28,7 +26,7 @@ export function logToDiv(divId, message, type = 'info', funcName = '') {
         outputDiv.innerHTML += `<span class="log-${logClass}">${timestamp} ${prefix}${sanitizedMessage}\n</span>`;
         outputDiv.scrollTop = outputDiv.scrollHeight;
     } catch(e) { 
-        console.error(`Error in logToDiv for ${divId}:`, e, "Original message:", message); 
+        console.error(`Error in log for ${divId}:`, e, "Original message:", message); 
         if (outputDiv) outputDiv.innerHTML += `[${new Date().toLocaleTimeString()}] [LOGGING ERROR] ${String(e)}\n`; 
     }
 }
@@ -38,9 +36,10 @@ export const KB = 1024;
 export const MB = KB * KB;
 export const GB = KB * KB * KB;
 
-export class AdvancedInt64 {
+// Renomeado de AdvancedInt64 para Int64
+export class Int64 {
     constructor(low, high) {
-        this._isAdvancedInt64 = true;
+        this._isInt64 = true; // Renomeado
         let buffer = new Uint32Array(2);
         
         let is_one_arg = false;
@@ -51,13 +50,13 @@ export class AdvancedInt64 {
 
         if (!is_one_arg) {
             if (typeof (low) !== 'number' || typeof (high) !== 'number') {
-                if (low instanceof AdvancedInt64 && high === undefined) {
+                if (low instanceof Int64 && high === undefined) { // Renomeado
                     buffer[0] = low.low();
                     buffer[1] = low.high();
                     this.buffer = buffer;
                     return;
                 }
-                throw TypeError('low/high must be numbers or single AdvancedInt64 argument');
+                throw TypeError('low/high must be numbers or single Int64 argument');
             }
         }
         
@@ -71,17 +70,17 @@ export class AdvancedInt64 {
             } else if (typeof (low) === 'string') {
                 let str = low;
                 if (str.startsWith('0x')) { str = str.slice(2); }
-                if (str.length > 16) { throw RangeError('AdvancedInt64 string input too long'); }
+                if (str.length > 16) { throw RangeError('Int64 string input too long'); } // Renomeado
                 str = str.padStart(16, '0');
                 const highStr = str.substring(0, 8);
                 const lowStr = str.substring(8, 16);
                 buffer[1] = parseInt(highStr, 16);
                 buffer[0] = parseInt(lowStr, 16);
-            } else if (low instanceof AdvancedInt64) {
+            } else if (low instanceof Int64) { // Renomeado
                  buffer[0] = low.low();
                  buffer[1] = low.high();
             } else {
-                throw TypeError('single arg must be number, hex string or AdvancedInt64');
+                throw TypeError('single arg must be number, hex string or Int64'); // Renomeado
             }
         } else {
             if (!check_range(low) || !check_range(high)) {
@@ -97,11 +96,11 @@ export class AdvancedInt64 {
     high() { return this.buffer[1]; }
 
     equals(other) {
-        if (!(other instanceof AdvancedInt64)) { return false; }
+        if (!(other instanceof Int64)) { return false; } // Renomeado
         return this.low() === other.low() && this.high() === other.high();
     }
     
-    static Zero = new AdvancedInt64(0,0);
+    static Zero = new Int64(0,0); // Renomeado
 
     toString(hex = false) {
         if (!hex) {
@@ -116,41 +115,42 @@ export class AdvancedInt64 {
     }
 
     add(val) {
-        if (!(val instanceof AdvancedInt64)) { val = new AdvancedInt64(val); }
+        if (!(val instanceof Int64)) { val = new Int64(val); } // Renomeado
         const a = (BigInt(this.high()) << 32n) | BigInt(this.low());
         const b = (BigInt(val.high()) << 32n) | BigInt(val.low());
         const result = a + b;
         const newHigh = Number((result >> 32n) & 0xFFFFFFFFn);
         const newLow = Number(result & 0xFFFFFFFFn);
-        return new AdvancedInt64(newLow, newHigh);
+        return new Int64(newLow, newHigh); // Renomeado
     }
 
     sub(val) {
-        if (!(val instanceof AdvancedInt64)) { val = new AdvancedInt64(val); }
+        if (!(val instanceof Int64)) { val = new Int64(val); } // Renomeado
         const a = (BigInt(this.high()) << 32n) | BigInt(this.low());
         const b = (BigInt(val.high()) << 32n) | BigInt(val.low());
         const result = a - b;
         const newHigh = Number((result >> 32n) & 0xFFFFFFFFn);
         const newLow = Number(result & 0xFFFFFFFFn);
-        return new AdvancedInt64(newLow, newHigh);
+        return new Int64(newLow, newHigh); // Renomeado
     }
 
     and(val) {
-        if (!(val instanceof AdvancedInt64)) { val = new AdvancedInt64(val); }
+        if (!(val instanceof Int64)) { val = new Int64(val); } // Renomeado
         const newLow = this.low() & val.low();
         const newHigh = this.high() & val.high();
-        return new AdvancedInt64(newLow >>> 0, newHigh >>> 0);
+        return new Int64(newLow >>> 0, newHigh >>> 0); // Renomeado
     }
 
     not() {
         const newLow = ~this.low() >>> 0;
         const newHigh = ~this.high() >>> 0;
-        return new AdvancedInt64(newLow, newHigh);
+        return new Int64(newLow, newHigh); // Renomeado
     }
 }
 
-export function isAdvancedInt64Object(obj) {
-    return obj && obj._isAdvancedInt64 === true;
+// Renomeado de isAdvancedInt64Object para isInt64
+export function isInt64(obj) {
+    return obj && obj._isInt64 === true;
 }
 
 export async function PAUSE(ms) {
@@ -158,9 +158,10 @@ export async function PAUSE(ms) {
 }
 
 export function toHex(val, bits = 32) {
-    if (isAdvancedInt64Object(val)) {
+    if (isInt64(val)) { // Renomeado
         return val.toString(true);
     }
+    // ... (lógica restante de toHex é a mesma) ...
     if (typeof val !== 'number') {
         return `NonNumeric(${typeof val}:${String(val)})`;
     }
@@ -180,10 +181,11 @@ export function toHex(val, bits = 32) {
     return '0x' + hexStr.padStart(numChars, '0');
 }
 
-export function stringToAdvancedInt64Array(str, nullTerminate = true) {
-    // ... (função mantida como estava)
+// Renomeado
+export function stringToInt64Array(str, nullTerminate = true) {
+    // ... (lógica interna é a mesma, mas cria 'new Int64') ...
     if (typeof str !== 'string') {
-        console.error("Input to stringToAdvancedInt64Array must be a string.");
+        console.error("Input to stringToInt64Array must be a string.");
         return [];
     }
     const result = [];
@@ -197,23 +199,24 @@ export function stringToAdvancedInt64Array(str, nullTerminate = true) {
         const char4_code = (i + 3 < str.length) ? str.charCodeAt(i + 3) : 0;
         low = (char2_code << 16) | char1_code;
         high = (char4_code << 16) | char3_code;
-        result.push(new AdvancedInt64(low, high));
+        result.push(new Int64(low, high)); // Renomeado
         if (char4_code === 0 && i + 3 < str.length && nullTerminate) break; 
         if (char3_code === 0 && i + 2 < str.length && char4_code === 0 && nullTerminate) break;
         if (char2_code === 0 && i + 1 < str.length && char3_code === 0 && char4_code === 0 && nullTerminate) break;
     }
     if (nullTerminate && (str.length % charsPerAdv64 !== 0 || str.length === 0)) {
-         if (str.length === 0) result.push(AdvancedInt64.Zero);
+         if (str.length === 0) result.push(Int64.Zero); // Renomeado
     }
     return result;
 }
 
-export function advancedInt64ArrayToString(arr) {
-    // ... (função mantida como estava)
+// Renomeado
+export function int64ArrayToString(arr) {
     let str = "";
     if (!Array.isArray(arr)) return "InputIsNotArray";
     for (const adv64 of arr) {
-        if (!isAdvancedInt64Object(adv64)) continue;
+        if (!isInt64(adv64)) continue; // Renomeado
+        // ... (lógica restante é a mesma) ...
         const low = adv64.low();
         const high = adv64.high();
         const char1_code = low & 0xFFFF;
