@@ -108,8 +108,6 @@ export class AdvancedInt64 {
     toNumber() {
         return this.high() * (0xFFFFFFFF + 1) + this.low();
     }
-    
-    // Funções Add/Sub/And/Not removidas por não serem usadas neste teste específico
 }
 
 export function isAdvancedInt64Object(obj) {
