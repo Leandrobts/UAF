@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>UAF GC CRASH</title>
+    <title>UAF GC CRASH - PS4 12.00 Optimized</title>
     <style>
         body { 
             background: #FFFFFF; 
@@ -19,16 +19,17 @@
         .log-warn { color: #FFA500; }
         .log-error { color: #FF0000; }
         .log-critical { color: #FF00FF; font-weight: bold; }
+        .log-rop { color: #00FF00; font-weight: bold; } /* Novo para ROP */
     </style>
 </head>
 <body>
-    <h1>Teste Isolado: UAF-Hyper GC CRASH</h1>
-    <button id="runIsolatedTestBtn">Iniciar Teste</button>
+    <h1>Teste Otimizado: UAF-Hyper GC CRASH para PS4 12.00</h1>
+    <button id="runIsolatedTestBtn">Iniciar Teste (Loop x10)</button>
     <div id="output-advanced"></div>
 
     <script type="module">
         import { getElementById } from './js/utils.bundle.mjs';
-        import { runAllAdvancedTests } from './js/test.bundle.mjs'; // Função principal
+        import { runAllAdvancedTests } from './js/test.bundle.mjs';
 
         function initializeAndRunTest() {
             const runBtn = getElementById('runIsolatedTestBtn');
@@ -40,7 +41,7 @@
                     if (runBtn.disabled) return;
                     runBtn.disabled = true;
                     if (outputDiv) outputDiv.innerHTML = '';
-                    console.log("Iniciando teste isolado...");
+                    console.log("Iniciando teste otimizado para PS4 12.00...");
 
                     try {
                         await runAllAdvancedTests(); 
@@ -50,9 +51,9 @@
                             outputDiv.innerHTML += `<span class="log-critical">[${new Date().toLocaleTimeString()}] [ERRO CRÍTICO] ${String(e.message)}\n</span>`;
                         }
                     } finally {
-                        console.log("Teste isolado concluído.");
+                        console.log("Teste otimizado concluído.");
                         if (outputDiv) {
-                            outputDiv.innerHTML += `<span class="log-test">[${new Date().toLocaleTimeString()}] Teste finalizado.\n</span>`;
+                            outputDiv.innerHTML += `<span class="log-test">[${new Date().toLocaleTimeString()}] Teste finalizado. Verifique título para status.\n</span>`;
                         }
                         runBtn.disabled = false;
                     }
