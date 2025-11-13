@@ -1,9 +1,11 @@
-// js/utils.bundle.mjs (Mesma base, com adições mínimas para ROP)
+// js/utils.bundle.mjs
 
+// --- dom_elements.mjs (simplificado) ---
 export function getElementById(id) {
     return document.getElementById(id);
 }
 
+// --- logger.mjs ---
 export function logToDiv(divId, message, type = 'info', funcName = '') {
     const outputDiv = getElementById(divId); 
     if (!outputDiv) {
@@ -14,23 +16,32 @@ export function logToDiv(divId, message, type = 'info', funcName = '') {
         const timestamp = `[${new Date().toLocaleTimeString()}]`;
         const prefix = funcName ? `[${funcName}] ` : '';
         const sanitizedMessage = String(message).replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        const logClass = ['info', 'test', 'subtest', 'vuln', 'good', 'warn', 'error', 'leak', 'ptr', 'critical', 'escalation', 'tool', 'rop'].includes(type) ? type : 'info';  // Adicionado 'rop'
+        
+        // Lista completa de tipos de log suportados
+        const validTypes = [
+            'info', 'test', 'subtest', 'vuln', 'good', 'warn', 'error', 
+            'leak', 'ptr', 'critical', 'escalation', 'tool', 'rop', 'brutal'
+        ];
+        const logClass = validTypes.includes(type) ? type : 'info';
 
-        if(outputDiv.innerHTML.length > 600000){ 
+        // Truncar logs muito longos para evitar travamento do DOM
+        if (outputDiv.innerHTML.length > 600000) {
             const lastPart = outputDiv.innerHTML.substring(outputDiv.innerHTML.length - 300000);
             outputDiv.innerHTML = `<span class="log-info">[${new Date().toLocaleTimeString()}] [Log Truncado...]</span>\n` + lastPart;
         }
 
         outputDiv.innerHTML += `<span class="log-${logClass}">${timestamp} ${prefix}${sanitizedMessage}\n</span>`;
         outputDiv.scrollTop = outputDiv.scrollHeight;
-    } catch(e) { 
+    } catch (e) { 
         console.error(`Error in logToDiv for ${divId}:`, e, "Original message:", message); 
-        if (outputDiv) outputDiv.innerHTML += `[${new Date().toLocaleTimeString()}] [LOGGING ERROR] ${String(e)}\n`; 
+        if (outputDiv) {
+            outputDiv.innerHTML += `[${new Date().toLocaleTimeString()}] [LOGGING ERROR] ${String(e)}\n`; 
+        }
     }
 }
 
+// --- utils.mjs (essenciais) ---
 export class AdvancedInt64 {
-    // Mesma implementação original...
     constructor(low, high) {
         this._isAdvancedInt64 = true;
         let buffer = new Uint32Array(2);
@@ -93,7 +104,7 @@ export class AdvancedInt64 {
         return this.low() === other.low() && this.high() === other.high();
     }
     
-    static Zero = new AdvancedInt64(0,0);
+    static Zero = new AdvancedInt64(0, 0);
 
     toString(hex = false) {
         if (!hex) {
