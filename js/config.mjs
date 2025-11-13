@@ -1,38 +1,29 @@
 // js/config.mjs
-
 // Firmware: PS4 12.02 (Com base na análise dos TXT fornecidos)
-// !! OFFSETS VALIDADOS E ATUALIZADOS COM BASE NOS ARQUIVOS DE DISASSEMBLY FORNECIDOS !!
-//    É crucial continuar validando no contexto do seu exploit específico.
+
 export const JSC_OFFSETS = {
     JSCell: {
-        STRUCTURE_POINTER_OFFSET: 0x8,    // VALIDADO
+        STRUCTURE_POINTER_OFFSET: 0x8,
         STRUCTURE_ID_FLATTENED_OFFSET: 0x0, 
         CELL_TYPEINFO_TYPE_FLATTENED_OFFSET: 0x4, 
         CELL_TYPEINFO_FLAGS_FLATTENED_OFFSET: 0x5, 
         CELL_FLAGS_OR_INDEXING_TYPE_FLATTENED_OFFSET: 0x6, 
         CELL_STATE_FLATTENED_OFFSET: 0x7,
-        // Seus valores originais para STRUCTURE_ID_OFFSET e FLAGS_OFFSET foram removidos
-        // para evitar confusão com os *_FLATTENED_OFFSET, que parecem mais detalhados
-        // da sua análise do construtor de Structure.
     },
-    CallFrame: { // Offsets baseados na análise de CallFrame.txt
-        CALLEE_OFFSET: 0x8,         // De JSC::ProtoCallFrame::callee() 
-        ARG_COUNT_OFFSET: 0x10,     // De JSC::ProtoCallFrame::argumentCountIncludingThis() 
-        THIS_VALUE_OFFSET: 0x18,    // De JSC::ProtoCallFrame::thisValue() 
-        ARGUMENTS_POINTER_OFFSET: 0x28 // De JSC::ProtoCallFrame::argument(ulong) 
+    CallFrame: {
+        CALLEE_OFFSET: 0x8,
+        ARG_COUNT_OFFSET: 0x10,
+        THIS_VALUE_OFFSET: 0x18,
+        ARGUMENTS_POINTER_OFFSET: 0x28
     },
-    Structure: { // Offsets DENTRO da estrutura Structure
+    Structure: {
         CELL_SPECIFIC_FLAGS_OFFSET: 0x8,
         TYPE_INFO_TYPE_OFFSET: 0x9,
         TYPE_INFO_MORE_FLAGS_OFFSET: 0xA,
         TYPE_INFO_INLINE_FLAGS_OFFSET: 0xC,
         AGGREGATED_FLAGS_OFFSET: 0x10,
-        // VIRTUAL_PUT_OFFSET foi movido para aqui, pois é um offset DENTRO da Structure.
-        // No seu dump, "call qword ptr [rdx+18h]" onde rdx é Structure* sugere isso.
-        VIRTUAL_PUT_OFFSET: 0x18, // CANDIDATO FORTE PARA PONTEIRO DE FUNÇÃO VIRTUAL (ex: JSObject::put)
-        PROPERTY_STORAGE_CAPACITY_OFFSET: 0x18, // Nota: Mesmo offset que VIRTUAL_PUT_OFFSET, isso é incomum. VERIFIQUE. Se for diferente, ajuste.
-                                                // Se o VIRTUAL_PUT_OFFSET for de uma vtable, ele estará no início da Structure (0x0) ou em ClassInfo.
-                                                // A sua nota "call qword ptr [rdx+18h]" é a pista.
+        VIRTUAL_PUT_OFFSET: 0x18,
+        PROPERTY_STORAGE_CAPACITY_OFFSET: 0x18,
         PROPERTY_TABLE_OFFSET: 0x20,
         GLOBAL_OBJECT_OFFSET: 0x28,
         PROTOTYPE_OFFSET: 0x30,
@@ -43,47 +34,44 @@ export const JSC_OFFSETS = {
         BUTTERFLY_OFFSET: 0x10,
     },
     JSFunction: {
-        EXECUTABLE_OFFSET: 0x18, // VALIDADO
+        EXECUTABLE_OFFSET: 0x18,
         SCOPE_OFFSET: 0x20,
     },
     JSCallee: { 
-        GLOBAL_OBJECT_OFFSET: 0x10, // VALIDADO
+        GLOBAL_OBJECT_OFFSET: 0x10,
     },
     ArrayBuffer: {
-        CONTENTS_IMPL_POINTER_OFFSET: 0x10, // VALIDADO
-        SIZE_IN_BYTES_OFFSET_FROM_JSARRAYBUFFER_START: 0x18, // VALIDADO
-        DATA_POINTER_COPY_OFFSET_FROM_JSARRAYBUFFER_START: 0x20, // VALIDADO
+        CONTENTS_IMPL_POINTER_OFFSET: 0x10,
+        SIZE_IN_BYTES_OFFSET_FROM_JSARRAYBUFFER_START: 0x18,
+        DATA_POINTER_COPY_OFFSET_FROM_JSARRAYBUFFER_START: 0x20,
         SHARING_MODE_OFFSET: 0x28,
         IS_RESIZABLE_FLAGS_OFFSET: 0x30,
         KnownStructureIDs: {
             JSString_STRUCTURE_ID: null,
-            ArrayBuffer_STRUCTURE_ID: 2, // VALIDADO
+            ArrayBuffer_STRUCTURE_ID: 2,
             JSArray_STRUCTURE_ID: null,
-            JSObject_Simple_STRUCTURE_ID: null // VÍRGULA ADICIONADA AQUI
+            JSObject_Simple_STRUCTURE_ID: null
         }
     },
-    ArrayBufferView: { // Para TypedArrays como Uint8Array, Uint32Array, DataView
-        STRUCTURE_ID_OFFSET: 0x00,      // Relativo ao início do JSCell do ArrayBufferView
-        FLAGS_OFFSET: 0x04,             // Relativo ao início do JSCell do ArrayBufferView
-        ASSOCIATED_ARRAYBUFFER_OFFSET: 0x08, // Ponteiro para o JSArrayBuffer.
-        CONTENTS_IMPL_POINTER_OFFSET: 0x10, // Ponteiro para ArrayBufferContents (redundante se já tem ASSOCIATED_ARRAYBUFFER_OFFSET?) ou diferente? Verifique.
-                                           // Geralmente, a View aponta para o JSArrayBuffer, e este aponta para Contents.
-                                           // Manteremos o seu, mas revise se ASSOCIATED_ARRAYBUFFER_OFFSET leva ao JSArrayBuffer, que por sua vez tem CONTENTS_IMPL_POINTER_OFFSET.
-        M_VECTOR_OFFSET: 0x10,          // Se CONTENTS_IMPL_POINTER_OFFSET acima for o correto, M_VECTOR_OFFSET pode ser relativo a ArrayBufferContents, não à View.
-                                           // No entanto, os logs anteriores sugerem que 0x58 (início da View) + 0x10 (M_VECTOR_OFFSET) = 0x68 funciona para você.
-        M_LENGTH_OFFSET: 0x18,          // Comprimento da view.
+    ArrayBufferView: {
+        STRUCTURE_ID_OFFSET: 0x00,
+        FLAGS_OFFSET: 0x04,
+        ASSOCIATED_ARRAYBUFFER_OFFSET: 0x08,
+        CONTENTS_IMPL_POINTER_OFFSET: 0x10,
+        M_VECTOR_OFFSET: 0x10,
+        M_LENGTH_OFFSET: 0x18,
         M_MODE_OFFSET: 0x1C
     },
     ArrayBufferContents: {
-        SIZE_IN_BYTES_OFFSET_FROM_CONTENTS_START: 0x8,   // VALIDADO
-        DATA_POINTER_OFFSET_FROM_CONTENTS_START: 0x10, // VALIDADO
+        SIZE_IN_BYTES_OFFSET_FROM_CONTENTS_START: 0x8,
+        DATA_POINTER_OFFSET_FROM_CONTENTS_START: 0x10,
         SHARED_ARRAY_BUFFER_CONTENTS_IMPL_PTR_OFFSET: 0x20,
         IS_SHARED_FLAG_OFFSET: 0x40,
         RAW_DATA_POINTER_FIELD_CANDIDATE_OFFSET: 0x5C,
         PINNING_FLAG_OFFSET: 0x5D,
     },
     VM: {
-        TOP_CALL_FRAME_OFFSET: 0x9E98, // VALIDADO
+        TOP_CALL_FRAME_OFFSET: 0x9E98,
     },
 };
 
@@ -106,9 +94,9 @@ export const WEBKIT_LIBRARY_INFO = {
         "JSC::ArrayBuffer::create_from_contents": "0x10E5320",
         "JSC::SymbolObject::finishCreation": "0x102C8F0",
         "JSC::StructureCache::emptyStructureForPrototypeFromBaseStructure": "0xCCF870",
-        "JSC::JSObject::put": "0xBD68B0", // Este é um bom candidato para VIRTUAL_PUT_OFFSET
+        "JSC::JSObject::put": "0xBD68B0",
         "JSC::Structure::Structure_constructor": "0x1638A50",
-        "WTF::fastMalloc": "0x1271810", // Verifique se este é o principal ou o de 0x230C490
+        "WTF::fastMalloc": "0x1271810",
         "WTF::fastFree": "0x230C7D0",
         "JSValueIsSymbol": "0x126D940",
         "JSC::JSArray::getOwnPropertySlot": "0x2322630",
@@ -126,30 +114,3 @@ export const WEBKIT_LIBRARY_INFO = {
         "JSC::Symbols::execPrivateName": "0x3CC7A30",
     }
 };
-
-export let OOB_CONFIG = {
-    ALLOCATION_SIZE: 1048576, // Para o  v10.36, você aumentou para 1MB. Mantenha o valor desejado.
-    BASE_OFFSET_IN_DV: 128,
-    INITIAL_BUFFER_SIZE: 32
-};
-
-export function updateOOBConfigFromUI(docInstance) {
-    // ... (sem alterações)
-    if (!docInstance) return;
-    const oobAllocSizeEl = docInstance.getElementById('oobAllocSize');
-    const baseOffsetEl = docInstance.getElementById('baseOffset');
-    const initialBufSizeEl = docInstance.getElementById('initialBufSize');
-
-    if (oobAllocSizeEl && oobAllocSizeEl.value !== undefined) {
-        const val = parseInt(oobAllocSizeEl.value, 10);
-        if (!isNaN(val) && val > 0) OOB_CONFIG.ALLOCATION_SIZE = val;
-    }
-    if (baseOffsetEl && baseOffsetEl.value !== undefined) {
-        const val = parseInt(baseOffsetEl.value, 10);
-        if (!isNaN(val) && val >= 0) OOB_CONFIG.BASE_OFFSET_IN_DV = val;
-    }
-    if (initialBufSizeEl && initialBufSizeEl.value !== undefined) {
-        const val = parseInt(initialBufSizeEl.value, 10);
-        if (!isNaN(val) && val > 0) OOB_CONFIG.INITIAL_BUFFER_SIZE = val;
-    }
-}
