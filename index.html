@@ -2,25 +2,49 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Hyper GC CRASH</title>
-    </head>
+    <title>Isolated Test - UAF-Hyper GC CRASH (Controle)</title>
+    <style>
+        body { background: #111; color: #eee; font-family: monospace; padding: 15px; font-size: 14px; }
+        #output-advanced {
+            background: #222;
+            border: 1px solid #444;
+            padding: 10px;
+            height: 70vh; 
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-top: 10px;
+        }
+        .log-info { color: #6cf; } .log-test { color: #fff; font-weight: bold; }
+        .log-vuln { color: #ff4444; font-weight: bold; } .log-good { color: #4CAF50; }
+        .log-warn { color: #FFC107; } .log-error { color: #f44336; } .log-critical { color: #f0f; font-weight: bold; }
+        
+        /* Estilos para o novo input */
+        input { background-color: #333; color: #eee; border: 1px solid #555; padding: 5px; }
+        label { margin-left: 10px; }
+    </style>
+</head>
 <body>
     <h1>Teste Isolado: UAF-Hyper GC CRASH</h1>
+    <p>Use o campo abaixo para controlar a agressividade do teste de memória.</p>
     
-    <button id="runIsolatedTestBtn">Start Test</button>
+    <button id="runIsolatedTestBtn">1. Iniciar Teste</button>
+    <input type="number" id="gcIterations" value="200" style="width: 80px;">
+    <label for="gcIterations">Iterações do GC (Padrão: 200. Original: 1000)</label>
+    
     <div id="output-advanced"></div>
 
     <script type="module">
-        // Importa dos nossos novos pacotes
-        import { getElementById } from './js/utils.bundle.mjs';
-        import { runAllAdvancedTestsS3 } from './js/test.bundle.mjs';
+        // Importa dos nossos pacotes atualizados
+        import { getElement } from './js/utils.bundle.mjs';
+        import { runAllTests } from './js/test.bundle.mjs';
 
         function initializeAndRunTest() {
-            const runBtn = getElementById('runIsolatedTestBtn');
-            const outputDiv = getElementById('output-advanced');
+            const runBtn = getElement('runIsolatedTestBtn');
+            const outputDiv = getElement('output-advanced');
+            const gcInput = getElement('gcIterations'); // Pega o novo input
 
             if (!outputDiv) {
-                console.error("DIV 'output-advanced' não encontrada. O log não será exibido na página.");
+                console.error("DIV 'output-advanced' não encontrada.");
             }
 
             if (runBtn) {
@@ -28,24 +52,27 @@
                     if (runBtn.disabled) return;
                     runBtn.disabled = true;
                     
-                    if (outputDiv) {
-                        outputDiv.innerHTML = ''; // Limpa logs anteriores
-                    }
-                    console.log("Iniciando teste isolado: Tentativa de Reproduzir Acionamento do Getter...");
+                    // Pega o valor das iterações NO MOMENTO DO CLIQUE
+                    const gcIterations = parseInt(gcInput.value, 10) || 200;
+
+                    if (outputDiv) outputDiv.innerHTML = ''; 
+                    console.log(`Iniciando teste isolado com ${gcIterations} iterações de GC...`);
 
                     try {
-                        await runAllAdvancedTestsS3();
+                        // Passa o número de iterações para a função de teste
+                        await runAllTests(gcIterations);
+                        
                     } catch (e) {
                         console.error("Erro crítico durante a execução do teste isolado:", e);
                         if (outputDiv) {
                             const timestamp = `[${new Date().toLocaleTimeString()}]`;
-                            outputDiv.innerHTML += `<span class="log-critical">${timestamp} [ERRO CRÍTICO NO TESTE] ${String(e.message).replace(/</g, "&lt;").replace(/>/g, "&gt;")}\n</span>`;
+                            outputDiv.innerHTML += `<span class="log-critical">${timestamp} [ERRO CRÍTICO NO TESTE] ${e.message}\n</span>`;
                         }
                     } finally {
                         console.log("Teste isolado concluído.");
                         if (outputDiv) {
                             const timestamp = `[${new Date().toLocaleTimeString()}]`;
-                            outputDiv.innerHTML += `<span class="log-test">${timestamp} Teste isolado finalizado. Verifique o console para mais detalhes...\n</span>`;
+                            outputDiv.innerHTML += `<span class="log-test">${timestamp} Teste finalizado.\n</span>`;
                         }
                         runBtn.disabled = false;
                     }
@@ -55,12 +82,7 @@
             }
         }
 
-        // Garante que o DOM esteja pronto
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initializeAndRunTest);
-        } else {
-            initializeAndRunTest();
-        }
+        document.addEventListener('DOMContentLoaded', initializeAndRunTest);
     </script>
 </body>
 </html>
