@@ -2,47 +2,47 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Isolated Test - UAF GC CRASH (Calibrado)</title>
+    <title>Isolated Test - UAF GC CRASH (Enxuto)</title>
     <style>
-        body { background: #FFFFFF; color: #000000; font-family: monospace; padding: 15px; font-size: 14px; }
-        #output-advanced {
-            background: #F0F0F0; border: 1px solid #000000; padding: 10px;
-            height: 70vh; overflow-y: auto; white-space: pre-wrap; margin-top: 10px; color: #000000;
+        body { 
+            background: #FFFFFF; 
+            color: #000000; 
+            font-family: monospace; 
+            padding: 15px; 
+            font-size: 14px; 
         }
-        .log-info { color: #0000AA; } .log-test { color: #000000; font-weight: bold; }
-        .log-vuln { color: #DD0000; font-weight: bold; } .log-good { color: #007700; }
-        .log-warn { color: #FFA500; } .log-error { color: #FF0000; } .log-critical { color: #FF00FF; font-weight: bold; }
+        #output-advanced {
+            background: #F0F0F0;
+            border: 1px solid #000000;
+            padding: 10px;
+            height: 75vh; 
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-top: 10px;
+            color: #000000;
+        }
+        .log-info { color: #0000AA; }
+        .log-test { color: #000000; font-weight: bold; }
+        .log-vuln { color: #DD0000; font-weight: bold; }
+        .log-good { color: #007700; }
+        .log-warn { color: #FFA500; }
+        .log-error { color: #FF0000; }
+        .log-critical { color: #FF00FF; font-weight: bold; }
     </style>
 </head>
 <body>
     <h1>Teste Isolado: UAF-Hyper GC CRASH</h1>
-    
-    <h3>Calibrar Memória (GC Trigger)</h3>
-    <p>Ajuste o valor (em Megabytes) para forçar o GC sem travar.</p>
-    <input type="range" id="gcMegabytes" min="100" max="1000" value="500" style="width: 300px;">
-    <input type="text" id="gcMegabytesValue" value="500" size="5"> MB
-    <br><br>
-    
+    <p>Abra o console do depurador para verificar possíveis erros.</p>
     <button id="runIsolatedTestBtn">Iniciar Teste</button>
     <div id="output-advanced"></div>
 
     <script type="module">
         import { getElementById } from './js/utils.bundle.mjs';
-        import { runAllAdvancedTests } from './js/test.bundle.mjs';
+        import { runAllAdvancedTests } from './js/test.bundle.mjs'; // Função principal
 
         function initializeAndRunTest() {
             const runBtn = getElementById('runIsolatedTestBtn');
             const outputDiv = getElementById('output-advanced');
-            
-            // --- Lógica para o Slider de Calibração ---
-            const slider = getElementById('gcMegabytes');
-            const sliderValue = getElementById('gcMegabytesValue');
-            if(slider && sliderValue) {
-                slider.oninput = () => { sliderValue.value = slider.value; };
-                sliderValue.oninput = () => { slider.value = sliderValue.value; };
-            }
-            // --- Fim da Lógica do Slider ---
-
             if (!outputDiv) console.error("DIV 'output-advanced' não encontrada.");
 
             if (runBtn) {
@@ -57,14 +57,12 @@
                     } catch (e) {
                         console.error("Erro crítico no teste:", e);
                         if (outputDiv) {
-                            const timestamp = `[${new Date().toLocaleTimeString()}]`;
-                            outputDiv.innerHTML += `<span class="log-critical">${timestamp} [ERRO CRÍTICO] ${String(e.message)}\n</span>`;
+                            outputDiv.innerHTML += `<span class="log-critical">[${new Date().toLocaleTimeString()}] [ERRO CRÍTICO] ${String(e.message)}\n</span>`;
                         }
                     } finally {
                         console.log("Teste isolado concluído.");
                         if (outputDiv) {
-                            const timestamp = `[${new Date().toLocaleTimeString()}]`;
-                            outputDiv.innerHTML += `<span class="log-test">${timestamp} Teste finalizado.\n</span>`;
+                            outputDiv.innerHTML += `<span class="log-test">[${new Date().toLocaleTimeString()}] Teste finalizado.\n</span>`;
                         }
                         runBtn.disabled = false;
                     }
