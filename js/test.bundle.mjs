@@ -158,7 +158,7 @@ function sprayAndCreateDanglingPointer() {
 
 // --- Início de runAllAdvancedTestsS3.mjs ---
 async function testJITBehavior() {
-    logS3("--- Iniciando Teste ---", 'test', 'testJITBehavior');
+    logS3("--- Iniciando Teste de Comportamento do JIT ---", 'test', 'testJITBehavior');
     let test_buf = new ArrayBuffer(16);
     let float_view = new Float64Array(test_buf);
     let uint32_view = new Uint32Array(test_buf);
