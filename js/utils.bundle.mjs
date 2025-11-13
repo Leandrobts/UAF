@@ -1,11 +1,9 @@
-// js/utils.bundle.mjs
+// js/utils.bundle.mjs (Mesma base, com adições mínimas para ROP)
 
-// --- dom_elements.mjs (simplificado) ---
 export function getElementById(id) {
     return document.getElementById(id);
 }
 
-// --- logger.mjs ---
 export function logToDiv(divId, message, type = 'info', funcName = '') {
     const outputDiv = getElementById(divId); 
     if (!outputDiv) {
@@ -16,7 +14,7 @@ export function logToDiv(divId, message, type = 'info', funcName = '') {
         const timestamp = `[${new Date().toLocaleTimeString()}]`;
         const prefix = funcName ? `[${funcName}] ` : '';
         const sanitizedMessage = String(message).replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        const logClass = ['info', 'test', 'subtest', 'vuln', 'good', 'warn', 'error', 'leak', 'ptr', 'critical', 'escalation', 'tool'].includes(type) ? type : 'info';
+        const logClass = ['info', 'test', 'subtest', 'vuln', 'good', 'warn', 'error', 'leak', 'ptr', 'critical', 'escalation', 'tool', 'rop'].includes(type) ? type : 'info';  // Adicionado 'rop'
 
         if(outputDiv.innerHTML.length > 600000){ 
             const lastPart = outputDiv.innerHTML.substring(outputDiv.innerHTML.length - 300000);
@@ -31,8 +29,8 @@ export function logToDiv(divId, message, type = 'info', funcName = '') {
     }
 }
 
-// --- utils.mjs (essenciais) ---
 export class AdvancedInt64 {
+    // Mesma implementação original...
     constructor(low, high) {
         this._isAdvancedInt64 = true;
         let buffer = new Uint32Array(2);
