@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>UAF GC CRASH - PS4 12.00 Optimized</title>
+    <title>UAF GC CRASH - PS4 12.00 Híbrido (Original + Fixes)</title>
     <style>
         body { 
             background: #FFFFFF; 
@@ -19,12 +19,12 @@
         .log-warn { color: #FFA500; }
         .log-error { color: #FF0000; }
         .log-critical { color: #FF00FF; font-weight: bold; }
-        .log-rop { color: #00FF00; font-weight: bold; } /* Novo para ROP */
+        .log-brutal { color: #FF4500; font-weight: bold; } /* Novo para modo brutal */
     </style>
 </head>
 <body>
-    <h1>Teste Otimizado: UAF-Hyper GC CRASH para PS4 12.00</h1>
-    <button id="runIsolatedTestBtn">Iniciar Teste (Loop x10)</button>
+    <h1>Teste Híbrido: UAF-Hyper GC CRASH (Revert Original para PS4 12.00)</h1>
+    <button id="runIsolatedTestBtn">Iniciar Teste (Loop até Sucesso ou 5min)</button>
     <div id="output-advanced"></div>
 
     <script type="module">
@@ -41,25 +41,30 @@
                     if (runBtn.disabled) return;
                     runBtn.disabled = true;
                     if (outputDiv) outputDiv.innerHTML = '';
-                    console.log("Iniciando teste otimizado para PS4 12.00...");
+                    console.log("Iniciando teste híbrido (original + fixes)...");
+
+                    const timeout = setTimeout(() => {
+                        console.error("Timeout 5min atingido. Forçando modo brutal.");
+                        document.title = 'UAF: TIMEOUT - MODO BRUTAL';
+                    }, 300000);  // 5min
 
                     try {
                         await runAllAdvancedTests(); 
+                        clearTimeout(timeout);
                     } catch (e) {
-                        console.error("Erro crítico no teste:", e);
+                        console.error("Erro crítico:", e);
                         if (outputDiv) {
                             outputDiv.innerHTML += `<span class="log-critical">[${new Date().toLocaleTimeString()}] [ERRO CRÍTICO] ${String(e.message)}\n</span>`;
                         }
+                        clearTimeout(timeout);
                     } finally {
-                        console.log("Teste otimizado concluído.");
+                        console.log("Teste concluído.");
                         if (outputDiv) {
-                            outputDiv.innerHTML += `<span class="log-test">[${new Date().toLocaleTimeString()}] Teste finalizado. Verifique título para status.\n</span>`;
+                            outputDiv.innerHTML += `<span class="log-test">[${new Date().toLocaleTimeString()}] Teste finalizado. Título: ${document.title}\n</span>`;
                         }
                         runBtn.disabled = false;
                     }
                 });
-            } else {
-                console.error("Botão 'runIsolatedTestBtn' não encontrado.");
             }
         }
 
